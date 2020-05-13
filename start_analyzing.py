@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __author__ = 'Shake'
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 
 
 import os
@@ -19,13 +19,13 @@ import matplotlib.pyplot as plt
 def start(pathname, is_save, is_video):
 
     #first check path: 1.a single file 2.folder contains subfolders 3.invaild path
-    if os.path.isdir(pathname):
-        isdir = True
-    elif os.path.isfile(pathname):
-        isdir = False
-    else:
-        tkinter.messagebox.showerror(title='Error', message='Input is not a vaild file or folder.')
-        return -1
+    # if os.path.isdir(pathname):
+        # isdir = True
+    # elif os.path.isfile(pathname):
+        # isdir = False
+    # else:
+        # tkinter.messagebox.showerror(title='Error', message='Input is not a vaild file or folder.')
+        # return -1
 
     win = Toplevel()
     win.title('Analyze results')
@@ -44,41 +44,84 @@ def start(pathname, is_save, is_video):
 
     # About to call external process and change the window with button
     # First prepare the arguments
-    arguments = './test.py -j '
+    arguments = './TrackAcc/trackacc.py -j '
     if is_video:
         arguments += '-V '
         if is_save:
             tkinter.messagebox.showwarning(title='Warning', message='Saving every result frame from a video will greatly slow down the speed and cost lots of space. So the program will not save the result frame.')
     elif is_save:
         arguments += '-s '
+        print(arguments)
     
 
     global results
     button = {}
     results = {}
 
+    def show_error(msg):
+        tkinter.messagebox.showerror(parent=win, title='Error', message=msg)
+
     def finished(result, path):
+        GETOPTERROR = 255
+        INVAILD_INPUT = 254
+        CONFIG_ERROR = 253
+        INVAILD_TYPE = 252
+        NO_SPECIFIC_IMAGE = 251
         ret, out, err = result
         if ret == 0:
             show_fig = partial(show_figure, path=path)
             button[path].change_look(win, True, show_fig)
         else:
-            msg = 'Error occured.'
+            msg = ''
+            if ret == GETOPTERROR:
+                msg = 'Program cannot get correct options.'
+            elif ret == INVAILD_INPUT:
+                msg = 'You had invaild input to trackacc program.'
+            elif ret == CONFIG_ERROR:
+                msg = 'Error occured when trackacc read config file.'
+            elif ret == INVAILD_TYPE:
+                msg = 'TrackAcc got wrong type of file, not an image file.'
+            elif ret == NO_SPECIFIC_IMAGE:
+                msg = 'There\'s nothing to do.'
             show_err = partial(show_error, msg = msg)
             button[path].change_look(win, False, show_err)
 
     pool = ThreadPool(cpu_count())
-    for path in dirs_for_analyze:
-        btn = Win_Button(canvas.frame, path)
-        button[path] = btn
-        canvas.put_button(win, btn.button)
-        canvas.put_text(win, btn.text)
-        
-        argument = ''
-        argument += arguments
-        argument += path
-        finish_callback = partial(finished, path=path)
-        results[path] = pool.apply_async(call_proc, (argument,), callback=finish_callback)
+    if not is_video:
+        for path in dirs_for_analyze:
+            btn = Win_Button(canvas.frame, path)
+            button[path] = btn
+            canvas.put_button(win, btn.button)
+            canvas.put_text(win, btn.text)
+            
+            argument = ''
+            argument += arguments
+            realpath = path.replace(' ', '\ ')
+            argument += realpath
+            finish_callback = partial(finished, path=path)
+            results[path] = pool.apply_async(call_proc, (argument,), callback=finish_callback)
+    else:
+        videos = []
+        for path in dirs_for_analyze:
+            if os.path.isfile(path):
+                videos.append(path)
+            else:
+                for file in os.listdir(path):
+                    if not (file.endswith('.avi') or file.endswith('mkv')):
+                        continue
+                    video = os.path.join(path, file)
+                    videos.append(video)
+        for video in videos:
+            btn = Win_Button(canvas.frame, video)
+            button[video] = btn
+            canvas.put_button(win, btn.button)
+            canvas.put_text(win, btn.text)
+            argument = ''
+            argument += arguments
+            realpath = video.replace(' ', '\ ')
+            argument += realpath
+            finish_callback = partial(finished, path=video)
+            results[video] = pool.apply_async(call_proc, (argument,), callback=finish_callback)
 
     pool.close()
 
@@ -94,29 +137,44 @@ def show_figure(path):
     global results
     ret, out, err = results[path].get()
     content = json.loads(out.decode('utf-8'))
-    # content = {'path':'/home/shake', 'max':3.9, 'stdevp':2.8, '1.jpg':2, '2.mim':3.6, '4.jpg':1.7, '5.png':2.5}
+    # content = {'path':'/home/shake', "tv":{'max':3.9, 'stdevp':2.8, '1.jpg':2, '2.mim':3.6, '4.jpg':1.7, '5.png':2.5}, "ir":{'max':None, 'stdevp':None}}
     draw_fig(content)
 
-def show_error(msg):
-    tkinter.messagebox.showerror(title='Error', message=msg)
 
 def draw_fig(content):
     fig = plt.figure(figsize=(12,7), facecolor='gray', edgecolor='#191919')
     ax = plt.subplot()
     fig.canvas.set_window_title(content['path'])
 
-    plt.ylim(0, content['max']+0.5)
-    x = list(content.keys())[3:]
-    y = list(content.values())[3:]
+    if content['tv']['max'] == None:
+        max = content['ir']['max']
+    elif content['ir']['max'] == None:
+        max = content['tv']['max']
+    elif content['tv']['max'] >= content['ir']['max']:
+        max = content['tv']['max']
+    else:
+        max = content['ir']['max']
+    plt.ylim(0, max+0.5)
+    tv_x = list(content['tv'].keys())[2:]
+    tv_y = list(content['tv'].values())[2:]
+    ir_x = list(content['ir'].keys())[2:]
+    ir_y = list(content['ir'].values())[2:]
 
-    max = 'max: ' + str(content['max'])
-    stdevp = 'stdevp: ' + str(content['stdevp'])
+    tv_max = 'tv max: ' + str(content['tv']['max'])
+    tv_stdevp = 'tv stdevp: ' + str(content['tv']['stdevp'])
+    ir_max = 'ir max: ' + str(content['ir']['max'])
+    ir_stdevp = 'ir stdevp: ' + str(content['ir']['stdevp'])
 
-    ax.scatter(x, y, s=50, color='red', marker='o', label=max)
-    ax.plot(x, y, color='blue', linestyle=':', linewidth=0.5, label=stdevp)
+    ax.scatter(tv_x, tv_y, s=50, color='red', marker='o', label=tv_max)
+    ax.plot(tv_x, tv_y, color='blue', linestyle=':', linewidth=0.5, label=tv_stdevp)
+    ax.scatter(ir_x, ir_y, s=50, color='purple', marker='o', label=ir_max)
+    ax.plot(ir_x, ir_y, color='darkblue', linestyle=':', linewidth=0.5, label=ir_stdevp)
+    ax.set_xticklabels(tv_x+tv_y, rotation=60)
     
-    for i in list(content.keys())[3:]:
-        ax.annotate(content[i], xy=(i,content[i]+0.02), fontsize=10, color='green', xycoords='data')
+    for i in list(content['tv'].keys())[2:]:
+        ax.annotate(content['tv'][i], xy=(i,content['tv'][i]+0.02), fontsize=10, color='green', xycoords='data')
+    for i in list(content['ir'].keys())[2:]:
+        ax.annotate(content['ir'][i], xy=(i,content['ir'][i]+0.02), fontsize=10, color='green', xycoords='data')
 
     plt.legend()
     

@@ -2,12 +2,13 @@
 
 
 __author__ = 'Shake'
-__version__ = '1.0.0'
+__version__ = '1.1.1'
 
 from tkinter import *
 import tkinter.messagebox
 import tkinter.filedialog
 from start_analyzing import start
+import os.path
 
 def main():
     main_win = Tk()
@@ -70,16 +71,16 @@ def about():
 
 def open_file():
     global path
-    pathname = tkinter.filedialog.askdirectory()
+    pathname = os.path.normpath(tkinter.filedialog.askdirectory())
     path.set(pathname)
     
 def is_save():
     global save
-    print(save.get())
+    # print(save.get())
 
 def is_video():
     global video
-    print(video.get())
+    # print(video.get())
 
 def start_analyzing():
     global path
