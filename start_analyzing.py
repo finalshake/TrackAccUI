@@ -68,6 +68,7 @@ def start(pathname, is_save, is_video):
         INVAILD_TYPE = 252
         NO_SPECIFIC_IMAGE = 251
         OPEN_VIDEO_ERROR = 250
+        NOT_VIDEO_TYPE = 249
         ret, out, err = result
         if ret == 0:
             show_fig = partial(show_figure, path=path)
@@ -86,6 +87,8 @@ def start(pathname, is_save, is_video):
                 msg = 'There\'s nothing to do.'
             elif ret == OPEN_VIDEO_ERROR:
                 msg = 'Cannot open video stream.'
+            elif ret == NOT_VIDEO_TYPE:
+                msg = 'Input video is not the specific image type.'
             show_err = partial(show_error, msg = msg)
             button[path].change_look(win, False, show_err)
 
@@ -110,7 +113,7 @@ def start(pathname, is_save, is_video):
                 videos.append(path)
             else:
                 for file in os.listdir(path):
-                    if not (file.endswith('.avi') or file.endswith('mkv')):
+                    if not (file.endswith('.avi') or file.endswith('.mkv') or file.endswith('.mov') or file.endswith('MOV')):
                         continue
                     video = os.path.join(path, file)
                     videos.append(video)
@@ -266,4 +269,4 @@ class Win_Button(object):
         master.update()
 
 if __name__ == '__main__':
-    start('/home/shake/Projects/TrackAcc', True, False)
+    start('/home/shake/Video/alashan/', False, True)
