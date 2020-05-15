@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __author__ = 'Shake'
-__version__ = '1.1.0'
+__version__ = '1.1.1'
 
 
 import os
@@ -67,6 +67,7 @@ def start(pathname, is_save, is_video):
         CONFIG_ERROR = 253
         INVAILD_TYPE = 252
         NO_SPECIFIC_IMAGE = 251
+        OPEN_VIDEO_ERROR = 250
         ret, out, err = result
         if ret == 0:
             show_fig = partial(show_figure, path=path)
@@ -80,9 +81,11 @@ def start(pathname, is_save, is_video):
             elif ret == CONFIG_ERROR:
                 msg = 'Error occured when trackacc read config file.'
             elif ret == INVAILD_TYPE:
-                msg = 'TrackAcc got wrong type of file, not an image file.'
+                msg = 'TrackAcc got wrong type of file, not an image or video file.'
             elif ret == NO_SPECIFIC_IMAGE:
                 msg = 'There\'s nothing to do.'
+            elif ret == OPEN_VIDEO_ERROR:
+                msg = 'Cannot open video stream.'
             show_err = partial(show_error, msg = msg)
             button[path].change_look(win, False, show_err)
 
